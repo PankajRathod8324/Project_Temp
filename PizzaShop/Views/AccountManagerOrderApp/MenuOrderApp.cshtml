@@ -1,0 +1,917 @@
+@model Entities.ViewModel.MenuCategoryVM
+
+@{
+    Layout = "_LayoutOrder";
+    ViewData["Title"] = "Table View";
+    decimal sgst = 0;
+    int type = 0;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pizza Shop</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css" />
+    <script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
+    <style>
+        .active {
+            background-color: rgba(0, 102, 167, 1) !important;
+            color: white !important;
+        }
+
+        .nav-link {
+            border-top-right-radius: 1.5rem !important;
+            border-bottom-right-radius: 1.5rem !important;
+        }
+
+        .bookmark {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+
+        }
+
+        .disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body style="background-color: rgb(245,245,245);">
+    <div class="container-fluid ps-0" style="padding-top: 70px; ">
+        <div class="row">
+            <!-- Dropdown for small screens -->
+            <div class="col-4 ms-4 mt-2 category-dropdown">
+                <select class="form-select form-select-lg mb-3" id="categoryDropdown" onchange="handlecategory(this)">
+                    <option value="0">All</option>
+                    <option value="favorite">Favorite Items</option>
+                    @foreach (var category in Model.menuCategories)
+                    {
+                        <option value="@category.CategoryId">@category.CategoryName</option>
+                    }
+                </select>
+            </div>
+
+        </div>
+        <div class="d-flex ">
+
+            <!-- Sidebar for large screens -->
+            <div class="col-md-2 bg-white pt-3 category-sidebar ps-0 ms-0 pe-0" style="width: 250px !important;">
+                <div class="fs-4 fw-bold ps-4 mb-3">Category</div>
+
+                <a class="nav-link text-nav-color p-2 ps-4 fs-5 fw-bold" onclick="showfavorite()">Favorite Items</a>
+                <a class="nav-link all-link text-nav-color p-2 ps-4 fs-5 fw-bold" onclick="showItem(0)">All</a>
+
+                @foreach (var category in Model.menuCategories)
+                {
+                    <a class="nav-link text-nav-color p-2 ps-4 fs-5 fw-bold" onclick="showItem(@category.CategoryId)">
+                        @category.CategoryName
+                    </a>
+                }
+            </div>
+            <div class="col mt-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="col-5">
+                        <div class=" position-relative">
+                            <input class="form-control form-control-lg " type="search" name="search"
+                                placeholder="Search " id="searchInput" style="height: 60px; ">
+                            <i class="bi bi-search position-absolute"
+                                style="top: 50%; right: 30px; transform: translateY(-50%);"></i>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end align-items-center gap-3">
+                        <span class="gap-2">
+                            <i class="fa-solid fa-circle" style="color: #00a651;"></i>
+                            <span class="ps-0 ms-0">Vegetarian</span>
+                        </span>
+                        <span class="gap-2">
+                            <i class="fa-solid fa-circle " style="color: #f14338;"></i>
+                            <span>Non-Vegetarian</span>
+                        </span>
+                        <span class="gap-2">
+                            <i class="fa-solid fa-circle " style="color: #f98d1a;"></i>
+                            <span>Vegan</span>
+                        </span>
+
+                    </div>
+
+                </div>
+                <div id="item-card" style="height: 750px;  overflow-y: auto;scrollbar-width: thin;">
+
+                </div>
+
+            </div>
+            <input type="hidden" id="customerid" value="@ViewBag.CustomerId" />
+
+            <div class="orderdetail col-xl-5 col-md-4 col-lg-4 bg-white mt-3 me-3 ms-0 p-3  d-none">
+                <form id="saveorderdetails">
+                    <div class="d-flex justify-content-between">
+                        <div class="d-flex gap-1 align-items-center">
+                            <div class=" bg-primary bg-opacity-25 p-1 ">
+                                <img src="~/assest/icons/dinner-table.svg" alt="" style="width: 30px;">
+                            </div>
+                            <div>
+                                @if (Model.customerTables.Any())
+                                {
+                                    var groupedTables = Model.customerTables
+                                    .GroupBy(t => t.SectionName)
+                                    .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(t => t.TableName)));
+
+                                    @foreach (var sections in groupedTables)
+                                    {
+                                        <span class="ms-2">@sections.Key</span>
+                                        <span class="d-flex gap-2 ms-2">
+                                            <span class="fw-bold">Table: </span>
+                                            <span> @sections.Value</span>
+                                        </span>
+                                    }
+                                }
+
+
+
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="webyborderdiv qrcodebtn">
+                                <i class="bi bi-qr-code-scan webybtn fs-4 p-2" style="width: 30px;"></i>
+                            </div>
+                            <div class="webyborderdiv personaldetailbtn">
+                                <i class="bi bi-person-lines-fill webybtn fs-4 p-2" style="width: 30px;"></i>
+                            </div>
+                            <div class="webyborderdiv orderwisecommentbtn">
+                                <i class="bi bi-chat-left-text webybtn fs-4 p-2" style="width: 30px;"></i>
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="d-flex mt-3">
+                        <div class="col-md-6 col-sm-3 ">
+                            <span class="fw-bold text-secondary">Item</span>
+                        </div>
+                        <div class="d-flex justify-content-between col-md-6 gap-5">
+
+                            <span class="fw-bold text-secondary">Quantity</span>
+
+                            <span class="fw-bold text-secondary ms-2">Amount</span>
+
+                            <span class="fw-bold text-white">adsadc</span>
+
+                        </div>
+
+                    </div>
+
+                    <div id="orderitemomdifier">
+
+                    </div>
+
+                    <div class="ms-3 border border-up border-bottom-0 border-start-0 border-end-0 ">
+                        <div class="d-flex justify-content-between mt-2">
+                            <div class="">
+                                <div class="text-secondary fw-bold ">SubTotal</div>
+                                @foreach (var tax in Model.Taxes)
+                                {
+                                    @if (tax.TaxName != "SGST")
+                                    {
+                                        <div>@tax.TaxName</div>
+
+                                    }
+                                    else
+                                    {
+                                        sgst = @tax.TaxAmount;
+                                        type = (int)@tax.TaxTypeId;
+                                    }
+                                }
+                                <div class="d-flex gap-2"><input class="sgstchkbox" type="checkbox">SGST</div>
+                            </div>
+                            <div class="">
+                                <div>
+                                    <span>₹</span>
+                                    <span class="text-secondary fw-bold subtotal">0.00</span>
+                                </div>
+                                @foreach (var tax in Model.Taxes)
+                                {
+                                    @if (tax.TaxName != "SGST")
+                                    {
+                                        <div class="d-block">
+                                            <span>₹</span>
+                                            <span class="taxbtn" data-amount="@tax.TaxAmount"
+                                                data-type="@tax.TaxTypeId">0.00</span>
+
+                                        </div>
+
+                                    }
+                                }
+                                <div>
+                                    <span>₹</span>
+                                    <span class="sgsttaxval">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="ms-3 d-flex justify-content-between mb-3">
+                        <span class="fw-bold">Total</span>
+                        <div>
+                            <span>₹</span>
+                            <span class="finaltotalamt fw-bold">0.00</span>
+                        </div>
+                    </div>
+                    <div class="ms-3 d-flex justify-content-between mb-3">
+                        <div>
+                            <span>Payment Method</span>
+                        </div>
+                        <div class="d-flex gap-2 disabled">
+                            <div class="d-flex gap-1">
+                                <input type="radio" checked>
+                                <span>Cash</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <input type="radio">
+                                <span>Card</span>
+                            </div>
+                            <div class="d-flex gap-1">
+                                <input type="radio">
+                                <span>UPI</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mb-2">
+                        <button type="submit" class="btn finalsavebtn assigntablefinalbtn px-5 py-2 ">Save</button>
+                        <button type="button" class="btn finalcancelbtn px-4 py-2" data-bs-dismiss="modal"
+                            disabled>Complete</button>
+                        <button type="button" class="btn finalcancelbtn px-3 py-2" data-bs-dismiss="modal"
+                            disabled>Gerenate
+                            Invoice</button>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn finalcancelbtn px-5 py-2"
+                            data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+    <div id="modifierdatamodal" class="modal fade" data-backdrop="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered w-xl">
+            <div class="modal-content h-100 no-radius">
+
+                <div id="modifierdata">
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="modifierdatamodal" class="modal fade" data-backdrop="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered w-xl">
+            <div class="modal-content h-100 no-radius">
+
+                <div id="modifierdata">
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <div id="qrcodemodal" class="modal fade" data-backdrop="true">
+        <div class="modal-dialog modal-sm modal-dialog-centered w-xl">
+            <div class="modal-content h-100 no-radius">
+                <div class="modal-header">
+                    <h5 class="modal-title text-secondary">Menu</h5>
+                    <button class="close" data-bs-dismiss="modal">&times;</button>
+                </div>
+
+                <div class="form-outline py-3 d-flex justify-content-center">
+                    <img src="~/assest/qr-code.png" alt="" style="width: 200px;">
+                </div>
+
+                <div class="modal-footer d-flex align-items-center justify-content-center">
+                    <button type="button" class="btn  webyborder webybtn fw-bold px-4"
+                        data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="Personaldetailmodal" class="modal fade" data-backdrop="true">
+        <div class="modal-dialog modal-dialog-centered w-xl">
+            <form id="editpersonaldetail">
+                <div class="modal-content h-100 no-radius">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-secondary">Customer Details</h5>
+                        <button class="close" data-bs-dismiss="modal">&times;</button>
+                    </div>
+                    <div id="personaldata">
+
+                    </div>
+
+                    <div class="modal-footer d-flex align-items-center justify-content-end">
+                        <button type="submit"
+                            class="btn  webybg  fs-6 fw-bold deletewaitingtokenbtn text-white px-4">Save</button>
+                        <button type="button" class="btn  webyborder webybtn fw-bold px-4"
+                            data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="orderwisecommentmodal" class="modal fade" data-backdrop="true">
+        <div class="modal-dialog modal-dialog-centered w-xl">
+            <div class="modal-content h-100 no-radius">
+                <div class="modal-header">
+                    <h5 class="modal-title text-secondary">Order Wise Comment</h5>
+                    <button class="close" data-bs-dismiss="modal">&times;</button>
+                </div>
+
+                <div class="form-outline p-3">
+                    <textarea class="form-control" id="CategoryDescription" name="CategoryDescription"
+                        placeholder="Comment" rows="4"></textarea>
+                    <label for="Comment*"></label>
+                </div>
+
+                <div class="modal-footer d-flex align-items-center justify-content-end">
+                    <button type="submit"
+                        class="btn  webybg  fs-6 fw-bold deletewaitingtokenbtn text-white px-4">Save</button>
+                    <button type="button" class="btn  webyborder webybtn fw-bold px-4"
+                        data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</body>
+
+<script>
+    var selecteditem = [];
+    var selectedmodifier = [];
+    var ItemDetailsArray = [];
+    let AppendedItemsArray = [];
+    let FinalArrayToBeSubmit = [];
+    let FinalOrderSum = 0;
+    let FinalTaxSum = 0;
+    let FinalSubtotalSum = 0;
+    let selectedcategoryId = 0;
+
+    $(document).ready(function () {
+
+        var CustomerId = $('#customerid').val();
+        console.log(CustomerId + "ID");
+        if (CustomerId != 0 ) {
+            console.log(CustomerId + "ID");
+            $('.orderdetail').removeClass('d-none').addClass('d-block');
+            @* $.ajax({
+                type: "GET",
+                url: '@Url.Action("GetItemByCategory", "AccountManagerOrderApp")',
+                data: { CategoryId: CategoryId },
+                success: function (data) {
+                    $('#item-card').html(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error(xhr);
+                }
+            });  *@
+                @* $.ajax({
+                    type: "GET",
+                    url: '@Url.Action("GetItems", "AccountManagerOrderApp")',
+                    data: { CategoryId: CategoryId },
+                    success: function (data) {
+                        $('#item-card').html(data);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(xhr);
+                    }
+                }); *@
+
+        }
+
+        // Initial load of items
+        showItem(0); // Load all items by default
+        $(".all-link").addClass("active");
+        $(".nav-link").click(function () {
+            $(".nav-link").removeClass("active");
+            $(this).addClass("active");
+        });
+
+        $(".personaldetailbtn").click(function () {
+            $("#Personaldetailmodal").modal('show');
+            $.ajax({
+                type: "GET",
+                url: '@Url.Action("GetCustomerDetails", "AccountManagerOrderApp")',
+                data: { CustomerId: CustomerId },
+                success: function (data) {
+                    $('#personaldata').html(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error(xhr);
+                }
+            });
+        });
+        $("#searchInput").keyup(function () {
+            var search = $("#searchInput").val();
+            console.log(selectedcategoryId);
+            $.ajax({
+                url: '/AccountManagerOrderApp/GetItemByCategory',
+                type: 'GET',
+                data: {
+                    CategoryId: selectedcategoryId,
+                    search: search,
+                },
+                success: function (data) {
+                    $("#item-card").html(data);
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error fetching items:', error);
+                }
+            });
+        });
+
+
+        $("#editpersonaldetail").submit(function (e) {
+            e.preventDefault();
+            console.log("Submitting EditTable form");
+
+            var formData = new FormData($(this)[0]);
+            console.log("Sending data:", formData);
+
+            $.ajax({
+                url: '/AccountManagerOrderApp/EditCustomer',
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                success: function (response) {
+                    $("#Personaldetailmodal").modal('hide');
+                    toastr.success("Customer Edited Successfully!");
+                },
+                error: function (xhr, status, error) {
+                    console.error('Error:', xhr.responseText);
+                }
+            });
+        });
+
+        $(".orderwisecommentbtn").click(function () {
+            $("#orderwisecommentmodal").modal('show');
+        });
+        $(".qrcodebtn").click(function () {
+            $("#qrcodemodal").modal('show');
+        });
+
+    });
+    function handlecategory(select) {
+        const val = select.value;
+        console.log(val);
+        if (val == "favorite") {
+            showfavorite();
+        }
+        else {
+            showItem(val);
+        }
+    }
+    console.log("Page loaded");
+    function showItem(CategoryId) {
+        selectedcategoryId = CategoryId;
+        console.log(CategoryId);
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetItemByCategory", "AccountManagerOrderApp")',
+            data: { CategoryId: CategoryId },
+            success: function (data) {
+                $('#item-card').html(data);
+            },
+            error: function (xhr, status, error) {
+                console.error(xhr);
+            }
+        });
+    }
+    function showfavorite() {
+        $.ajax({
+            type: "GET",
+            url: '@Url.Action("GetFavouriteItem", "AccountManagerOrderApp")',
+            data: {},
+            success: function (data) {
+                $('#item-card').html(data);
+            },
+            error: function (xhr, status, error) {
+                console.error(xhr);
+            }
+        });
+    }
+    $(document).on("click", ".favoritebtn", function (event) {
+        event.stopPropagation();
+        var itemId = $(this).data("itemid");
+
+        console.log(itemId + "Item ID");
+        $.ajax({
+            type: "POST",
+            url: '@Url.Action("AddToFavouriteItem", "AccountManagerOrderApp")',
+            data: { ItemId: itemId },
+            success: function (response) {
+                $.ajax({
+                    type: "GET",
+                    url: '@Url.Action("GetItemByCategory", "AccountManagerOrderApp")',
+                    data: { CategoryId: selectedcategoryId },
+                    success: function (data) {
+                        $('#item-card').html(data);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(xhr);
+                    }
+                });
+                if (response.success) {
+                    @* alert("Item added to favorites!"); *@
+                } else {
+                    alert("Failed to add item to favorites.");
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(xhr);
+            }
+        });
+    });
+    let ItemIdTemp = 0;
+    let ItemRateTemp = 0;
+    $(document).on("click", ".MenuItemCard", function () {
+        var itemId = $(this).data("itemid");
+        var itemrate = $(this).data('itemrate');
+        ItemIdTemp = itemId;
+        ItemRateTemp = itemrate;
+        console.log(itemId + "ITEMIDDDDDD");
+        $.ajax({
+            type: "GET",
+            url: '/AccountManagerOrderApp/GetModifierFromItem',
+            data: { ItemId: itemId },
+            success: function (data) {
+                $('#modifierdatamodal').modal('show');
+                console.log("SUccess");
+                $('#modifierdata').html(data);
+            },
+            error: function (xhr, status, error) {
+                console.error(xhr);
+            }
+        });
+    });
+    $(document).on("click", ".ModifierCard", function () {
+        var modId = $(this).data("modid");
+        var groupId = $(this).data("groupid"); // Get Modifier Group Id
+        var min = $(this).data('min');
+        var max = $(this).data('max');
+        let Highlight = true;
+
+        const existingItemIndex = ItemDetailsArray.findIndex(item => item.ItemId === ItemIdTemp);
+
+        if (existingItemIndex !== -1) {
+            let existingModifiers = ItemDetailsArray[existingItemIndex].MenuItemModifier || [];
+
+            // Group-wise selected count
+            let groupModifiers = existingModifiers.filter(mod => mod.ModifierGroupId === groupId);
+
+            if ($(this).hasClass("selected")) {
+                // Remove from the array
+                existingModifiers = existingModifiers.filter(mod => mod.ModifierId !== modId);
+            } else {
+                if (groupModifiers.length < max) {
+                    // Add only if group limit not reached
+                    existingModifiers.push({ ModifierId: modId, ModifierGroupId: groupId });
+                } else {
+                    Highlight = false;
+                    toastr.warning("You can't select more than " + max + " options in this group.");
+                }
+            }
+
+            // Remove duplicates
+            const mergedModifiers = [];
+            const ids = new Set();
+            existingModifiers.forEach(mod => {
+                if (!ids.has(mod.ModifierId)) {
+                    ids.add(mod.ModifierId);
+                    mergedModifiers.push(mod);
+                }
+            });
+
+            ItemDetailsArray[existingItemIndex].MenuItemModifier = mergedModifiers;
+        } else {
+            // New item push
+            ItemDetailsArray.push({
+                ItemId: ItemIdTemp,
+                MenuItemModifier: [{ ModifierId: modId, ModifierGroupId: groupId }]
+            });
+        }
+
+        console.log(ItemDetailsArray);
+
+        // Toggle styles only if allowed
+        if (Highlight == true) {
+            $(this).toggleClass("selected border-primary bg-primary-subtle");
+            console.log("Highlight: " + Highlight);
+        }
+    });
+    $(document).on("click", ".modifieraddbtn", function () {
+        console.log(ItemIdTemp + "TempID");
+        console.log("ItemDetailsArray length: " + ItemDetailsArray.length);
+
+        if (ItemDetailsArray.length === 0) {
+            ItemDetailsArray.push({
+                ItemId: ItemIdTemp,
+                MenuItemModifier: []
+            });
+            console.log(ItemDetailsArray);
+        }
+
+        const currentItem = ItemDetailsArray.find(item => item.ItemId === ItemIdTemp);
+        const currentModifiers = currentItem?.MenuItemModifier || [];
+
+        // Check if this exact item + modifiers already exists
+        const isDuplicate = AppendedItemsArray.some(appended => {
+            if (appended.ItemId !== ItemIdTemp) return false;
+
+            const appendedMods = appended.MenuItemModifier.map(m => m.ModifierId).sort();
+            const currentMods = currentModifiers.map(m => m.ModifierId).sort();
+
+            return JSON.stringify(appendedMods) === JSON.stringify(currentMods);
+        });
+
+        if (isDuplicate) {
+
+            toastr.warning("This item with the same modifiers already exists.");
+            return;
+        }
+
+        // Not a duplicate, proceed and track it
+        AppendedItemsArray.push({
+            ItemId: ItemIdTemp,
+            MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId })),
+            Quantity: 1,
+            Rate: ItemRateTemp,
+            SubTotal: 0,
+            FinalTotal: 0,
+            IsSgstInclude: false
+        });
+        FinalArrayToBeSubmit.push({
+            Items: AppendedItemsArray,
+            SubTotal: 0,
+            FinalTotal: 0,
+            IsSgstInclude: false
+        })
+
+        console.log(FinalArrayToBeSubmit + "FinalArrayToBesubmit");
+        $.ajax({
+            url: '@Url.Action("GetMenuItemDetails", "AccountManagerOrderApp")',
+            type: "POST",
+            data: JSON.stringify(ItemDetailsArray),
+            contentType: 'application/json',
+            success: function (response) {
+                $("#modifierdatamodal").modal('hide');
+                $("#orderitemomdifier").append(response);
+
+                let total = 0;
+
+                $(".ItemDataCard").each(function () {
+                    let rate = parseFloat($(this).find('.itemrate').text()) || 0;
+                    let modifierrate = parseFloat($(this).find('.modifierrate').text()) || 0;
+                    total += (rate + modifierrate);
+                });
+
+                FinalSubtotalSum = total;
+                $(".subtotal").text(total.toFixed(2));
+
+                calculateTax();
+
+                let finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+                $(".finaltotalamt").text(finaltotal);
+                FinalOrderSum = finaltotal;
+
+                selecteditem = [];
+                selectedmodifier = [];
+                ItemDetailsArray = [];
+
+                console.log("Final Order Total: " + FinalOrderSum);
+            },
+            error: function (xhr, status, error) {
+                console.error("Error fetching order details:", error);
+            }
+        });
+    });
+
+    $(document).on("click", ".inc", function () {
+        var Quantity = $(this).closest('.d-flex').find($('.inputquantity')).text();
+        $(this).closest('.d-flex').find($('.inputquantity'))[0].innerHTML = parseInt(Quantity) + 1;
+        let container = $(this).closest('.justify-content-between');
+        let rate = container.find('.itemrate').attr('value');
+        container.find('.itemrate').text((parseFloat(rate) * (parseFloat(Quantity) + 1)).toFixed(2));
+        console.log(rate);
+        FinalSubtotalSum += parseFloat(rate);
+        console.log(FinalSubtotalSum);
+        $(".subtotal").text(FinalSubtotalSum.toFixed(2));
+        calculateTax();
+        finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+        $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
+        const modifiers = ItemDetailsArray.find(x => x.ItemId === ItemIdTemp)?.MenuItemModifier || [];
+
+        // Find matching item in appended array based on ItemId and same modifiers
+        const existingIndex = AppendedItemsArray.findIndex(x => {
+            return x.ItemId === ItemIdTemp &&
+                JSON.stringify(x.MenuItemModifier.sort((a, b) => a.ModifierId - b.ModifierId)) ===
+                JSON.stringify(modifiers.sort((a, b) => a.ModifierId - b.ModifierId));
+        });
+
+        if (existingIndex !== -1) {
+            AppendedItemsArray[existingIndex].Quantity += 1;
+            AppendedItemsArray[existingIndex].SubTotal = FinalSubtotalSum;
+            AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+        }
+
+        console.log(AppendedItemsArray);
+    });
+
+    $(document).on("click", ".dec", function () {
+        var Quantity = $(this).closest('.d-flex').find($('.inputquantity')).text();
+        if (parseInt(Quantity) != 1) {
+            $(this).closest('.d-flex').find($('.inputquantity'))[0].innerHTML = parseInt(Quantity) - 1;
+            let container = $(this).closest('.justify-content-between');
+            let rate = container.find('.itemrate').attr('value');
+            container.find('.itemrate').text((parseFloat(rate) * (parseFloat(Quantity) - 1)).toFixed(2));
+            console.log(rate);
+            FinalSubtotalSum -= parseFloat(rate);
+            console.log(FinalSubtotalSum);
+            $(".subtotal").text(FinalSubtotalSum.toFixed(2));
+            calculateTax();
+            finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+            $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
+            const modifiers = ItemDetailsArray.find(x => x.ItemId === ItemIdTemp)?.MenuItemModifier || [];
+
+            // Find matching item in appended array based on ItemId and same modifiers
+            const existingIndex = AppendedItemsArray.findIndex(x => {
+                return x.ItemId === ItemIdTemp &&
+                    JSON.stringify(x.MenuItemModifier.sort((a, b) => a.ModifierId - b.ModifierId)) ===
+                    JSON.stringify(modifiers.sort((a, b) => a.ModifierId - b.ModifierId));
+            });
+
+            if (existingIndex !== -1) {
+                AppendedItemsArray[existingIndex].Quantity -= 1;
+                AppendedItemsArray[existingIndex].SubTotal = FinalSubtotalSum;
+                AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+            }
+
+            console.log(AppendedItemsArray);
+        }
+
+
+    });
+    $(document).on("click", ".sgstchkbox", function () {
+        var sgsttax;
+        var finalsgsttaxval;
+        console.log(FinalTaxSum);
+        if ($(this).prop('checked')) {
+            if (@type == 2) {
+                $('.sgsttaxval')[0].innerHTML = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(4);
+                sgsttax = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(5);
+                FinalTaxSum += parseFloat(sgsttax);
+            }
+            else {
+                $('.sgsttaxval')[0].innerHTML = parseFloat(@sgst).toPrecision(4);
+                sgsttax = parseFloat(@sgst).toPrecision(5);
+                FinalTaxSum += parseFloat(sgsttax);
+            }
+        }
+        else {
+            if (@type == 2) {
+                $('.sgsttaxval')[0].innerHTML = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(4);
+                sgsttax = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(5);
+                FinalTaxSum -= parseFloat(sgsttax);
+            }
+            else {
+                $('.sgsttaxval')[0].innerHTML = parseFloat(@sgst).toPrecision(4);
+                sgsttax = parseFloat(@sgst).toPrecision(5);
+                FinalTaxSum -= parseFloat(sgsttax);
+            }
+        }
+        console.log(FinalTaxSum);
+        finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+        $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
+        const modifiers = ItemDetailsArray.find(x => x.ItemId === ItemIdTemp)?.MenuItemModifier || [];
+
+        // Find matching item in appended array based on ItemId and same modifiers
+        const existingIndex = AppendedItemsArray.findIndex(x => {
+            return x.ItemId === ItemIdTemp &&
+                JSON.stringify(x.MenuItemModifier.sort((a, b) => a.ModifierId - b.ModifierId)) ===
+                JSON.stringify(modifiers.sort((a, b) => a.ModifierId - b.ModifierId));
+        });
+
+        if (existingIndex !== -1) {
+            if ($(this).prop('checked')) {
+
+                AppendedItemsArray[existingIndex].IsSgstInclude = true;
+            }
+            else {
+
+                AppendedItemsArray[existingIndex].IsSgstInclude = false;
+            }
+            AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+        }
+
+        console.log(AppendedItemsArray);
+
+    });
+
+
+    $(document).on("click", ".deleteitembtn", function () {
+        console.log(ItemDetailsArray);
+        if (ItemDetailsArray.length == 0) {
+            AppendedItemsArray = [];
+        }
+        var container = $(this).closest(".ItemDataCard").closest(".justify-content-between");
+        var itemratedss = container.find('.itemrate').text();
+        var modifierrate = container.find('.modifierrate').text() || 0;
+        console.log(itemratedss);
+        FinalSubtotalSum -= parseFloat(itemratedss) + parseFloat(modifierrate);
+        $(".subtotal").text(FinalSubtotalSum.toFixed(2));
+        calculateTax();
+        finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
+        $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
+        $(this).closest(".ItemDataCard").remove();
+
+    });
+    function calculateTax() {
+        let finalTaxTotal = 0;
+        $('.taxbtn').each(function () {
+            var tax = $(this).data('amount');
+            var taxtype = $(this).data('type');
+            let taxValue = 0;
+
+            if (parseInt(taxtype) == 2) {
+                $(this)[0].innerHTML = ((parseFloat(tax) / 100) * FinalSubtotalSum).toPrecision(3);
+                taxValue = ((parseFloat(tax) / 100) * FinalSubtotalSum).toPrecision(5);
+            }
+            else {
+                @* console.log(FinalOrderSum+ "delete"); *@
+                if (FinalOrderSum == 0) {
+                    $(this)[0].innerHTML = parseFloat(0).toPrecision(4);
+                }
+                else {
+
+                    $(this)[0].innerHTML = parseFloat(tax).toPrecision(4);
+                }
+                taxValue = parseFloat(tax).toPrecision(5);
+            }
+            finalTaxTotal += parseFloat(taxValue);
+
+        });
+        let sgsttax = 0;
+        if (@type == 2) {
+            $('.sgsttaxval')[0].innerHTML = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(4);
+            sgsttax = ((parseFloat(@sgst) / 100) * FinalSubtotalSum).toPrecision(5);
+            @* finalTaxTotal += parseFloat(sgsttax); *@
+                }
+        else {
+            $('.sgsttaxval')[0].innerHTML = parseFloat(@sgst).toPrecision(4);
+            sgsttax = parseFloat(@sgst).toPrecision(5);
+        }
+        FinalTaxSum = finalTaxTotal;
+        console.log(FinalTaxSum + "Final Tax Total");
+    }
+
+    $("#saveorderdetails").submit(function (e) {
+        e.preventDefault();
+        console.log("Submitting EditTable form");
+
+        var formData = new FormData($(this)[0]);
+        console.log("Sending data:", AppendedItemsArray);
+
+        @* $.ajax({
+            url: '/AccountManagerOrderApp/EditCustomer',
+            type: 'POST',
+            contentType: false,
+            processData: false,
+            data: formData,
+            success: function (response) {
+                $("#Personaldetailmodal").modal('hide');
+                toastr.success("Customer Edited Successfully!");
+            },
+            error: function (xhr, status, error) {
+                console.error('Error:', xhr.responseText);
+            }
+        }); *@
+    });
+</script>
+
+</html>
