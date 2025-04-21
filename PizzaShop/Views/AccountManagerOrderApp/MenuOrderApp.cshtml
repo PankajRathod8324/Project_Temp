@@ -349,7 +349,7 @@
 
                 <div class="modal-footer d-flex align-items-center justify-content-end">
                     <button type="submit"
-                        class="btn  webybg  fs-6 fw-bold deletewaitingtokenbtn text-white px-4">Save</button>
+                        class="btn  webybg  fs-6 fw-bold save-order-comment-btn text-white px-4">Save</button>
                     <button type="button" class="btn  webyborder webybtn fw-bold px-4"
                         data-bs-dismiss="modal">Cancel</button>
                 </div>
@@ -371,12 +371,13 @@
     let FinalTaxSum = 0;
     let FinalSubtotalSum = 0;
     let selectedcategoryId = 0;
+    let tempOrderComment = "";
 
     $(document).ready(function () {
 
         var CustomerId = $('#customerid').val();
         console.log(CustomerId + "ID");
-        if (CustomerId != 0 ) {
+        if (CustomerId != 0) {
             console.log(CustomerId + "ID");
             $('.orderdetail').removeClass('d-none').addClass('d-block');
             @* $.ajax({
@@ -476,6 +477,17 @@
             $("#qrcodemodal").modal('show');
         });
 
+        $('.save-order-comment-btn').click(function () {
+            tempOrderComment = $('#CategoryDescription').val();
+            console.log("Temp Comment Saved:", tempOrderComment);
+            $('#orderwisecommentmodal').modal('hide');
+        });
+
+        // When modal is shown, load the saved comment back into textarea
+        $('#orderwisecommentmodal').on('shown.bs.modal', function () {
+            $('#CategoryDescription').val(tempOrderComment);
+        });
+
     });
     function handlecategory(select) {
         const val = select.value;
@@ -548,6 +560,8 @@
             }
         });
     });
+
+
     let ItemIdTemp = 0;
     let ItemRateTemp = 0;
     $(document).on("click", ".MenuItemCard", function () {
@@ -661,17 +675,11 @@
             ItemId: ItemIdTemp,
             MenuItemModifier: currentModifiers.map(m => ({ ModifierId: m.ModifierId })),
             Quantity: 1,
-            Rate: ItemRateTemp,
-            SubTotal: 0,
-            FinalTotal: 0,
-            IsSgstInclude: false
+            Rate: ItemRateTemp
         });
-        FinalArrayToBeSubmit.push({
-            Items: AppendedItemsArray,
-            SubTotal: 0,
-            FinalTotal: 0,
-            IsSgstInclude: false
-        })
+
+
+
 
         console.log(FinalArrayToBeSubmit + "FinalArrayToBesubmit");
         $.ajax({
@@ -705,6 +713,14 @@
                 ItemDetailsArray = [];
 
                 console.log("Final Order Total: " + FinalOrderSum);
+
+                FinalArrayToBeSubmit.push({
+                    Items: AppendedItemsArray,
+                    SubTotal: FinalSubtotalSum,
+                    FinalTotal: FinalOrderSum,
+                    IsSgstInclude: false,
+                    Comment: tempOrderComment
+                });
             },
             error: function (xhr, status, error) {
                 console.error("Error fetching order details:", error);
@@ -725,22 +741,53 @@
         calculateTax();
         finaltotal = parseFloat((FinalSubtotalSum + FinalTaxSum)).toPrecision(5);
         $(".finaltotalamt")[0].innerHTML = parseFloat(finaltotal).toPrecision(5);
-        const modifiers = ItemDetailsArray.find(x => x.ItemId === ItemIdTemp)?.MenuItemModifier || [];
+        // Get current item's modifiers
+        const modifiers = AppendedItemsArray.find(x => x.ItemId === ItemIdTemp)?.MenuItemModifier || [];
 
-        // Find matching item in appended array based on ItemId and same modifiers
-        const existingIndex = AppendedItemsArray.findIndex(x => {
-            return x.ItemId === ItemIdTemp &&
-                JSON.stringify(x.MenuItemModifier.sort((a, b) => a.ModifierId - b.ModifierId)) ===
-                JSON.stringify(modifiers.sort((a, b) => a.ModifierId - b.ModifierId));
+        console.log(modifiers + "Modifiers");
+        // Normalize and sort modifiers
+        const sortedCurrentModifiers = modifiers
+            .map(m => ({ ModifierId: m.ModifierId }))
+            .sort((a, b) => a.ModifierId - b.ModifierId);
+
+            console.log(sortedCurrentModifiers + "Sorted Current Modifiers");
+
+        // Find if this exact item (same ID + modifiers) already exists
+        const existingItemIndex = AppendedItemsArray.findIndex(item => {
+            const sortedItemModifiers = (item.MenuItemModifier || [])
+                .map(m => ({ ModifierId: m.ModifierId }))
+                .sort((a, b) => a.ModifierId - b.ModifierId);
+                console.log(sortedItemModifiers + "Sorted Item Modifiers");
+
+            return item.ItemId === ItemIdTemp &&
+                JSON.stringify(sortedItemModifiers) === JSON.stringify(sortedCurrentModifiers);
         });
 
-        if (existingIndex !== -1) {
-            AppendedItemsArray[existingIndex].Quantity += 1;
-            AppendedItemsArray[existingIndex].SubTotal = FinalSubtotalSum;
-            AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+        if (existingItemIndex !== -1) {
+            // ✅ Just increase quantity
+            AppendedItemsArray[existingItemIndex].Quantity += 1;
+        } else {
+            // ✅ Add a new entry with quantity 1
+            AppendedItemsArray.push({
+                ItemId: ItemIdTemp,
+                MenuItemModifier: sortedCurrentModifiers,
+                Quantity: 1,
+                Rate: ItemRateTemp
+
+            });
         }
 
-        console.log(AppendedItemsArray);
+        // Rebuild FinalArrayToBeSubmit (if it's a wrapper)
+        FinalArrayToBeSubmit = [{
+            Items: AppendedItemsArray,
+            SubTotal: FinalSubtotalSum,
+            FinalTotal: finaltotal,
+            IsSgstInclude: false,
+            Comment: tempOrderComment
+        }];
+
+        console.log(FinalArrayToBeSubmit);
+
     });
 
     $(document).on("click", ".dec", function () {
@@ -768,8 +815,8 @@
 
             if (existingIndex !== -1) {
                 AppendedItemsArray[existingIndex].Quantity -= 1;
-                AppendedItemsArray[existingIndex].SubTotal = FinalSubtotalSum;
-                AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+                FinalArrayToBeSubmit[existingIndex].SubTotal = FinalSubtotalSum;
+                FinalArrayToBeSubmit[existingIndex].FinalTotal = finaltotal;
             }
 
             console.log(AppendedItemsArray);
@@ -820,13 +867,13 @@
         if (existingIndex !== -1) {
             if ($(this).prop('checked')) {
 
-                AppendedItemsArray[existingIndex].IsSgstInclude = true;
+                FinalArrayToBeSubmit[existingIndex].IsSgstInclude = true;
             }
             else {
 
-                AppendedItemsArray[existingIndex].IsSgstInclude = false;
+                FinalArrayToBeSubmit[existingIndex].IsSgstInclude = false;
             }
-            AppendedItemsArray[existingIndex].FinalTotal = finaltotal;
+            FinalArrayToBeSubmit[existingIndex].FinalTotal = finaltotal;
         }
 
         console.log(AppendedItemsArray);
@@ -895,7 +942,7 @@
         console.log("Submitting EditTable form");
 
         var formData = new FormData($(this)[0]);
-        console.log("Sending data:", AppendedItemsArray);
+        console.log("Sending data:", FinalArrayToBeSubmit);
 
         @* $.ajax({
             url: '/AccountManagerOrderApp/EditCustomer',
